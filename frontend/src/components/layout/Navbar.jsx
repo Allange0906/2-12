@@ -1,10 +1,13 @@
 import { Link } from 'react-router-dom';
+import logo from '../../assets/logo1.png';
 
 export default function Navbar() {
   return (
     <div className="navbar bg-base-100 border-b border-base-200 rounded-b-box sticky top-0 z-50 px-0">
       <div className="flex-1">
-        <Link to="/" className="btn btn-ghost text-xl font-bold">Bugil212</Link>
+        <Link to="/" className="btn btn-ghost hover:bg-transparent">
+          <img src={logo} alt="Bugil212" className="h-20 w-auto" />
+        </Link>
       </div>
       <div className="flex-none">
         <div className="dropdown dropdown-end">

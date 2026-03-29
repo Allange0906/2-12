@@ -90,6 +90,7 @@ const ParticleSystem = ({ isOpen }) => {
       // y좌표에 미세한 보정값을 더해 완벽한 세로 정중앙(시각적)에 안착시킵니다.
       const visualCenterY = height / 2 + fontSize * 0.06;
 
+      oCtx.font = "900 500px system-ui"
       oCtx.fillText('ㅎ', leftBoundary, visualCenterY);
       oCtx.fillText('ㅇ', rightBoundary, visualCenterY);
 
@@ -157,8 +158,8 @@ const ParticleSystem = ({ isOpen }) => {
       // 남은 입자들의 중심까지의 거리 산출
       let availableHomes = [...homes];
       availableHomes.forEach(h => {
-        h.dL = (h.x - leftCenter.x)**2 + (h.y - leftCenter.y)**2;
-        h.dR = (h.x - rightCenter.x)**2 + (h.y - rightCenter.y)**2;
+        h.dL = (h.x - leftCenter.x) ** 2 + (h.y - leftCenter.y) ** 2;
+        h.dR = (h.x - rightCenter.x) ** 2 + (h.y - rightCenter.y) ** 2;
       });
 
       // 가장 가까운 입자들을 추출 (원형 Void 형성 기준)
@@ -201,7 +202,7 @@ const ParticleSystem = ({ isOpen }) => {
           });
         }
       };
-      
+
       pushTextParticles(leftHomes, leftTargets);
       pushTextParticles(rightHomes, rightTargets);
 
@@ -330,8 +331,25 @@ const ParticleSystem = ({ isOpen }) => {
         if (mDist < repelRadius && mDist > 0) {
           const force = (repelRadius - mDist) / repelRadius;
           const strength = 70;
-          repelX = (mDistX / mDist) * force * strength;
-          repelY = (mDistY / mDist) * force * strength;
+          repelX += (mDistX / mDist) * force * strength;
+          repelY += (mDistY / mDist) * force * strength;
+        }
+
+        // --- 중앙 로고/메뉴 영역 배제 (입자가 로고와 버튼 사이에 침범하지 않도록) ---
+        if (isOpenRef.current) {
+          const centerX = width / 2;
+          const centerY = height / 2;
+          const cDistX = p.x - centerX;
+          const cDistY = p.y - centerY;
+          const cDist = Math.sqrt(cDistX * cDistX + cDistY * cDistY);
+          const exclusionRadius = 280; // outerRadius(250) + 여유분(30)
+
+          if (cDist < exclusionRadius && cDist > 0) {
+            const force = (exclusionRadius - cDist) / exclusionRadius;
+            const strength = 120; // 강력하게 밀어내서 절대 침범 불가
+            repelX += (cDistX / cDist) * force * strength;
+            repelY += (cDistY / cDist) * force * strength;
+          }
         }
 
         const dx = (tX + repelX) - p.x;
@@ -341,6 +359,16 @@ const ParticleSystem = ({ isOpen }) => {
         p.vy *= 0.85;
         p.x += dx * p.ease + p.vx;
         p.y += dy * p.ease + p.vy;
+
+        // --- 중앙 로고/메뉴 영역 배제 (로고~버튼 사이 틈새만 비움) ---
+        if (isOpenRef.current) {
+          const centerX = width / 2;
+          const centerY = height / 2;
+          const cDistX = p.x - centerX;
+          const cDistY = p.y - centerY;
+          const cDist = Math.sqrt(cDistX * cDistX + cDistY * cDistY);
+          if (cDist < 180) return; // 로고 반지름(~128) + 약간의 여유만 비움
+        }
 
         ctx.fillStyle = isOpenRef.current && !p.isBackground ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.35)';
         ctx.beginPath();

@@ -81,7 +81,7 @@ export default function Home() {
           onClick={() => setIsOpen(!isOpen)}
         >
           {/* 스케일 다운: w-80 -> w-64 변경하여 여백 확보 */}
-          <img src={logo2} alt="Bugil212 Logo" className="w-64 h-auto drop-shadow-sm pointer-events-none" />
+          <img src={logo2} alt="Bugil212 Logo" className="w-64 h-auto pointer-events-none" />
         </div>
 
         {/* SVG 방사형 부채꼴 메뉴 */}
@@ -114,21 +114,26 @@ export default function Home() {
                       transition: `all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) ${delay}ms`
                     }}
                   >
-                    {/* 선의 두께를 사용하여 평행하고 일정한 틈을 만듦 */}
-                    <path
-                      d={pathD}
-                      className="fill-black transition-colors duration-200 group-hover:fill-white"
-                      style={{ stroke: '#ffffff', strokeWidth: '5px' }}
-                    />
-                    <text
-                      x={textPos.x}
-                      y={textPos.y}
-                      textAnchor="middle"
-                      dy="0.33em"
-                      className="fill-white font-semibold text-lg transition-colors duration-200 group-hover:fill-black select-none pointer-events-none"
+                    <g 
+                      className="transition-transform duration-200 group-hover:scale-[1.04]"
+                      style={{ transformOrigin: `${cx}px ${cy}px` }}
                     >
-                      {item.name}
-                    </text>
+                      {/* 선의 두께를 사용하여 평행하고 일정한 틈을 만듦 */}
+                      <path
+                        d={pathD}
+                        className="fill-neutral-300 transition-colors duration-200 group-hover:fill-black"
+                        style={{ stroke: '#ffffff', strokeWidth: '5px' }}
+                      />
+                      <text
+                        x={textPos.x}
+                        y={textPos.y}
+                        textAnchor="middle"
+                        dy="0.33em"
+                        className="fill-neutral-600 font-semibold text-lg transition-colors duration-200 group-hover:fill-white select-none pointer-events-none"
+                      >
+                        {item.name}
+                      </text>
+                    </g>
                   </g>
                 );
               })}

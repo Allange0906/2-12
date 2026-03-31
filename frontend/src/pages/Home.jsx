@@ -473,11 +473,11 @@ export default function Home() {
             onClick={() => setIsOpen(!isOpen)}
           >
             {/* 스케일 다운: w-80 -> w-64 변경하여 여백 확보 */}
-            <img 
-              src={logo2} 
-              alt="Bugil212 Logo" 
+            <img
+              src={logo2}
+              alt="Bugil212 Logo"
               className={`w-64 h-auto drop-shadow-sm pointer-events-none transition-transform duration-500 
-                ${!isOpen ? 'group-hover:scale-[1.07]' : ''}`} 
+                ${!isOpen ? 'group-hover:scale-[1.07]' : ''}`}
             />
           </div>
 

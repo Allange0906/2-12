@@ -118,7 +118,7 @@ export default function NumberPicker() {
         </button>
         <button
           type="button"
-          className="btn btn-ghost btn-lg text-error"
+          className="btn btn-neutral btn-lg px-7.5"
           onClick={handleReset}
         >
           초기화

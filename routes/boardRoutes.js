@@ -11,16 +11,26 @@ import User from '../models/User.js';
 import CalendarEvent from '../models/CalendarEvent.js';
 import verifyToken from '../middleware/auth.js';
 import { redactAuthorId } from './commentRoutes.js';
+import { mkdir } from 'fs';
 
 const router = Router();
 
+const PRIVILEGED_CATEGORIES = ['공지', '수행'];
 const PRIVILEGED_ROLES = ['관리자', '반장', '부반장', '선생님'];
 
 // 글 등록
+// create folder if not exists
+mkdir('uploads', { recursive: true }, (err) => {
+  if (err) {
+    console.error('업로드 폴더 생성 오류:', err);
+  }
+});
+
 const storage = diskStorage({
     destination: (req, file, cb) => cb(null, 'uploads/'),
     filename: (req, file, cb) => cb(null, Date.now() + extname(file.originalname))
 });
+
 const upload = multer({ storage: storage, limits: { fileSize: 1 * 1024 * 1024 * 1024 } }); // 1GiB
 
 router.post('/', verifyToken, upload.array('files'), /** @param {import('../auth.js').AuthenticatedRequest} req */ async (req, res) => {
@@ -37,12 +47,8 @@ router.post('/', verifyToken, upload.array('files'), /** @param {import('../auth
 
   if (!req.user) return res.status(401).json({ error: '인증이 필요합니다.' });
 
-  if (category === '공지' && !PRIVILEGED_ROLES.includes(req.user.role)) {
+  if (PRIVILEGED_CATEGORIES.includes(category) && !PRIVILEGED_ROLES.includes(req.user.role)) {
     return res.status(403).json({ error: '공지는 관리자, 반장, 부반장, 선생님만 작성할 수 있습니다.' });
-  }
-
-  if (category === '수행' && !PRIVILEGED_ROLES.includes(req.user.role)) {
-    return res.status(403).json({ error: '수행평가는 관리자, 반장, 부반장, 선생님만 작성할 수 있습니다.' });
   }
   
   if (typeof title !== 'string' || typeof category !== 'string' || typeof content !== 'string') {
@@ -56,11 +62,7 @@ router.post('/', verifyToken, upload.array('files'), /** @param {import('../auth
   if (parsedDdayAlarm !== undefined && (typeof parsedDdayAlarm !== 'number' || Number.isNaN(parsedDdayAlarm))) {
     return res.status(400).json({ error: 'dDayAlarm은 숫자여야 합니다.' });
   }
-
-  if (category === '공지' && !['관리자', '반장', '부반장'].includes(req.user.role)) {
-    return res.status(403).json({ error: '공지는 관리자, 반장, 부반장만 작성할 수 있습니다.' });
-  }
-
+  
   try {
     const newBoard = new Board({
       title,

@@ -11,7 +11,13 @@ const TABS = [
 
 const PRIVILEGED_ROLES = ['관리자', '반장', '부반장', '선생님'];
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_FILE_SIZE = 1000 * 1024 * 1024; // 1 GiB
+
+const getAttachmentHref = (filePath) => {
+  if (!filePath) return '#';
+  if (/^https?:\/\//i.test(filePath)) return filePath;
+  return `/${filePath.replace(/^\/+/, '')}`;
+};
 
 // ────────────────────────────────────────────────
 // 글쓰기 모달 폼
@@ -23,7 +29,7 @@ function WriteForm({ onClose, onSuccess, activeCategory, activeLabel }) {
     deadline: '',
     nickname: '',
   });
-  const [file, setFile] = useState(null);
+  const [files, setFiles] = useState([]);
   const [fileError, setFileError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const fileInputRef = useRef(null);
@@ -35,16 +41,23 @@ function WriteForm({ onClose, onSuccess, activeCategory, activeLabel }) {
   const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
   const handleFileChange = (e) => {
-    const f = e.target.files[0];
-    if (!f) { setFile(null); return; }
-    if (f.size > MAX_FILE_SIZE) {
-      setFileError('파일 크기는 10MB 이하여야 합니다.');
-      setFile(null);
+    const selectedFiles = Array.from(e.target.files ?? []);
+    if (selectedFiles.length === 0) {
+      setFiles([]);
+      setFileError('');
+      return;
+    }
+
+    const oversizedFile = selectedFiles.find(selectedFile => selectedFile.size > MAX_FILE_SIZE);
+    if (oversizedFile) {
+      setFileError(`각 파일 크기는 1 GiB 이하여야 합니다. (${oversizedFile.name})`);
+      setFiles([]);
       fileInputRef.current.value = '';
       return;
     }
+
     setFileError('');
-    setFile(f);
+    setFiles(selectedFiles);
   };
 
   const handleSubmit = async (e) => {
@@ -56,8 +69,8 @@ function WriteForm({ onClose, onSuccess, activeCategory, activeLabel }) {
         fd.append('category', activeCategory);
         fd.append('title', form.title);
         fd.append('content', form.content);
-        if (file) fd.append('file', file);
-        await api.post('/boards', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+        files.forEach(selectedFile => fd.append('files', selectedFile));
+        await api.post('/boards', fd);
       } else {
         const payload = {
           category: activeCategory,
@@ -136,16 +149,25 @@ function WriteForm({ onClose, onSuccess, activeCategory, activeLabel }) {
           {isFile && (
             <div>
               <label className="label py-1">
-                <span className="label-text text-xs font-semibold">파일 첨부 <span className="text-base-content/40">(10MB 이하)</span></span>
+                <span className="label-text text-xs font-semibold">파일 첨부 <span className="text-base-content/40">(1 GiB 이하)</span></span>
               </label>
               <input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 className="file-input file-input-bordered file-input-sm w-full"
                 onChange={handleFileChange}
               />
               {fileError && <p className="text-error text-xs mt-1">{fileError}</p>}
-              {file && <p className="text-success text-xs mt-1">✓ {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)</p>}
+              {files.length > 0 && (
+                <ul className="text-success text-xs mt-1 space-y-0.5">
+                  {files.map(selectedFile => (
+                    <li key={`${selectedFile.name}-${selectedFile.lastModified}`}>
+                      ✓ {selectedFile.name} ({(selectedFile.size / 1024 / 1024).toFixed(2)} MB)
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
@@ -399,7 +421,14 @@ function BoardSection({ apiCategory, refreshKey }) {
 
   return (
     <div className="flex flex-col space-y-3">
-      {posts.map(post => (
+      {posts.map(post => {
+        const attachments = Array.isArray(post.files) && post.files.length > 0
+          ? post.files
+          : post.fileUrl
+            ? [{ fileName: post.fileName, filePath: post.fileUrl }]
+            : [];
+
+        return (
         <div key={post.id} className="collapse collapse-arrow bg-base-100 border border-base-200 shadow-sm hover:shadow-md transition-shadow">
           <input type="checkbox" />
           {/* 닫힌 상태 — 제목만 표시 */}
@@ -442,15 +471,20 @@ function BoardSection({ apiCategory, refreshKey }) {
                 )}
 
                 {/* 파일 첨부 */}
-                {post.fileUrl && (
-                  <a
-                    href={post.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs text-primary underline w-fit"
-                  >
-                    📎 {post.fileName || '첨부파일 다운로드'}
-                  </a>
+                {attachments.length > 0 && (
+                  <div className="mt-2 flex flex-col items-start gap-1">
+                    {attachments.map((attachment, index) => (
+                      <a
+                        key={`${attachment.filePath || attachment.fileName}-${index}`}
+                        href={getAttachmentHref(attachment.filePath)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary underline w-fit"
+                      >
+                        📎 {attachment.fileName || `첨부파일 ${index + 1}`}
+                      </a>
+                    ))}
+                  </div>
                 )}
 
                 {/* 수정/삭제 버튼 */}
@@ -467,7 +501,8 @@ function BoardSection({ apiCategory, refreshKey }) {
             )}
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -476,7 +511,7 @@ function BoardSection({ apiCategory, refreshKey }) {
 // 메인 Board 페이지
 // ────────────────────────────────────────────────
 export default function Board() {
-  const { isAuthed, loading, ToastComponent } = useRequireAuth();
+  const { isAuthed, ToastComponent } = useRequireAuth();
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   const [showForm, setShowForm] = useState(false);

@@ -47,6 +47,7 @@ const ParticleSystem = ({ isOpen }) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
+    const isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
 
     // Scale for high dpi displays
     const dpr = Math.min(window.devicePixelRatio || 1, 2); // Cap at 2x to save performance
@@ -142,7 +143,7 @@ const ParticleSystem = ({ isOpen }) => {
       targetCoords.sort((a, b) => a.x - b.x);
 
       // 전체 배경을 채울 기본 별가루(백그라운드) 입자 수는 대폭 늘려서 (1000개) 우주처럼 풍성하게 만듦
-      const totalParticles = targetCoords.length + 2000;
+      const totalParticles = targetCoords.length + 1000;
 
       // 전체 화면에 900개 홈(지정석) 그리드 점 생성
       const homes = [];
@@ -393,7 +394,8 @@ const ParticleSystem = ({ isOpen }) => {
           if (cDist < 180) return; // 로고 반지름(~128) + 약간의 여유만 비움
         }
 
-        ctx.fillStyle = isOpenRef.current && !p.isBackground ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.35)';
+        const baseColor = isDark ? '192, 192, 255' : '0, 0, 0';
+        ctx.fillStyle = isOpenRef.current && !p.isBackground ? `rgba(${baseColor}, 0.8)` : `rgba(${baseColor}, 0.35)`;
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();

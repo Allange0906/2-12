@@ -28,6 +28,7 @@ function WriteForm({ onClose, onSuccess, activeCategory, activeLabel }) {
     title: '',
     content: '',
     deadline: '',
+    dDayAlarm: '',
     nickname: '',
   });
   const [files, setFiles] = useState([]);
@@ -36,7 +37,7 @@ function WriteForm({ onClose, onSuccess, activeCategory, activeLabel }) {
   const fileInputRef = useRef(null);
 
   const isCommunity = activeCategory === '일반';
-  const isAssessment = activeCategory === '수행평가';
+  const isAssessment = activeCategory === '수행';
   const isFile = activeCategory === '파일';
 
   const set = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
@@ -79,7 +80,7 @@ function WriteForm({ onClose, onSuccess, activeCategory, activeLabel }) {
           content: form.content,
           ...(isCommunity && form.nickname ? { nickname: form.nickname } : {}),
           ...(isAssessment && form.deadline
-            ? { deadline: new Date(form.deadline).toISOString() }
+            ? { deadline: new Date(form.deadline).toISOString(), dDayAlarm: Number.parseInt(form.dDayAlarm, 10) }
             : {}),
         };
         await api.post('/boards', payload);
@@ -142,6 +143,18 @@ function WriteForm({ onClose, onSuccess, activeCategory, activeLabel }) {
                 className="input input-bordered input-sm w-full"
                 value={form.deadline}
                 onChange={e => set('deadline', e.target.value)}
+              />
+
+              <label className="label py-1">
+                <span className="label-text text-xs font-semibold">D-Day 알림</span>
+              </label>
+              <input
+                type="number"
+                className="input input-bordered input-sm w-full"
+                placeholder="마감일 며칠 전에 알림을 받을지 입력하세요"
+                value={form.dDayAlarm}
+                onChange={e => set('dDayAlarm', e.target.value)}
+                min={0}
               />
             </div>
           )}
@@ -437,12 +450,9 @@ function BoardSection({ apiCategory, refreshKey }) {
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="font-semibold text-sm truncate">{post.title}</span>
-                {isCommunity && post.nickname && (
-                  <span className="badge badge-ghost badge-sm text-xs">{post.nickname}</span>
-                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-xs text-base-content/50">{post.authorName}</span>
+                <span className="text-xs text-base-content/50">{post.authorName ?? post.nickname}</span>
                 <span className="text-xs text-base-content/40">
                   {new Date(post.createdAt).toLocaleDateString()}
                 </span>

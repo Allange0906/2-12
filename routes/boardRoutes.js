@@ -15,8 +15,10 @@ import { mkdir } from 'fs';
 
 const router = Router();
 
+const CATEGORIES = ['공지', '수행', '일반', '파일'];
 const PRIVILEGED_CATEGORIES = ['공지', '수행'];
 const PRIVILEGED_ROLES = ['관리자', '반장', '부반장', '선생님'];
+const ANNOYMOUS_CATEGORIES = ['일반'];
 
 // 글 등록
 // create folder if not exists
@@ -47,6 +49,10 @@ router.post('/', verifyToken, upload.array('files'), /** @param {import('../auth
 
   if (!req.user) return res.status(401).json({ error: '인증이 필요합니다.' });
 
+  if (!CATEGORIES.includes(category)) {
+    return res.status(400).json({ error: '유효하지 않은 카테고리입니다.' });
+  }
+
   if (PRIVILEGED_CATEGORIES.includes(category) && !PRIVILEGED_ROLES.includes(req.user.role)) {
     return res.status(403).json({ error: '공지는 관리자, 반장, 부반장, 선생님만 작성할 수 있습니다.' });
   }
@@ -62,13 +68,21 @@ router.post('/', verifyToken, upload.array('files'), /** @param {import('../auth
   if (parsedDdayAlarm !== undefined && (typeof parsedDdayAlarm !== 'number' || Number.isNaN(parsedDdayAlarm))) {
     return res.status(400).json({ error: 'dDayAlarm은 숫자여야 합니다.' });
   }
-  
+
+  if (ANNOYMOUS_CATEGORIES.includes(category) && (!nickname || nickname.trim() === '')) {
+    return res.status(400).json({ error: '익명 게시글은 닉네임이 필요합니다.' });
+  }
+
+  if (!ANNOYMOUS_CATEGORIES.includes(category) && nickname) {
+    return res.status(400).json({ error: '익명 게시글이 아닌 경우 닉네임을 사용할 수 없습니다.' });
+  }
+
   try {
     const newBoard = new Board({
       title,
       category,
       content,
-      nickname: nickname || undefined,
+      nickname: nickname ?? undefined,
       deadline: parsedDeadline,
       dDayAlarm: parsedDdayAlarm,
       authorId: req.user.id,
@@ -79,11 +93,11 @@ router.post('/', verifyToken, upload.array('files'), /** @param {import('../auth
     await newBoard.save();
 
     // 수행평가 + 마감일이 있으면 캘린더에 자동 등록
-    if (category === '수행평가' && parsedDeadline) {
+    if (category === '수행' && parsedDeadline) {
       const dateKey = `${parsedDeadline.getFullYear()}-${String(parsedDeadline.getMonth() + 1).padStart(2, '0')}-${String(parsedDeadline.getDate()).padStart(2, '0')}`;
       const calEvent = new CalendarEvent({
         date: dateKey,
-        title: `[수행평가] ${title}`,
+        title: `[수행] ${title}`,
         content: content,
         authorId: req.user.id,
         source: 'assessment',
@@ -116,19 +130,29 @@ router.get('/', verifyToken, /** @param {import('../auth.js').AuthenticatedReque
     }
 
     const boards = await Board.find(query).sort({ createdAt: -1 });
-    res.status(200).json(boards.map((board) => ({
-      id: board._id,
-      title: board.title,
-      category: board.category,
-      content: board.content,
-      deadline: board.deadline,
-      dDayAlarm: board.dDayAlarm,
-      authorId: board.authorId,
-      authorName: board.authorName,
-      files: board.files,
-      createdAt: board.createdAt,
-      comments: redactAuthorId(board.comments)
-    })));
+    res.status(200).json(boards.map((board) => {
+      /** @type {Record<string, any>} */
+      const res = {
+        id: board._id,
+        title: board.title,
+        category: board.category,
+        content: board.content,
+        deadline: board.deadline,
+        dDayAlarm: board.dDayAlarm,
+        files: board.files,
+        createdAt: board.createdAt,
+        comments: redactAuthorId(board.comments)
+      }
+
+      if (!ANNOYMOUS_CATEGORIES.includes(board.category)) {
+        res.authorId = board.authorId;
+        res.authorName = board.authorName;
+      } else {
+        res.nickname = board.nickname;
+      }
+
+      return res;
+    }));
   } catch (error) {
     res.status(500).json({ error: '글 조회 오류' });
   }
@@ -205,7 +229,7 @@ router.patch('/:id', verifyToken, /** @param {import('../auth.js').Authenticated
           { boardId: board._id, source: 'assessment' },
           {
             date: dateKey,
-            title: `[수행평가] ${board.title}`,
+            title: `[수행] ${board.title}`,
             content: board.content
           }
         );

@@ -33,7 +33,7 @@ const storage = diskStorage({
     filename: (req, file, cb) => cb(null, Date.now() + extname(file.originalname))
 });
 
-const upload = multer({ storage: storage, limits: { fileSize: 1 * 1024 * 1024 * 1024 } }); // 1GiB
+const upload = multer({ storage: storage, limits: { fileSize: 1 * 1024 * 1024 * 1024 }, defParamCharset: 'utf8' }); // 1GiB
 
 router.post('/', verifyToken, upload.array('files'), /** @param {import('../auth.js').AuthenticatedRequest} req */ async (req, res) => {
   const { title, category, content, nickname, deadline, dDayAlarm } = req.body;

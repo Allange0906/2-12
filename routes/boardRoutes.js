@@ -96,7 +96,7 @@ router.post('/', verifyToken, upload.array('files'), /** @param {import('../auth
     if (category === '수행' && parsedDeadline) {
       const dateKey = `${parsedDeadline.getFullYear()}-${String(parsedDeadline.getMonth() + 1).padStart(2, '0')}-${String(parsedDeadline.getDate()).padStart(2, '0')}`;
       const calEvent = new CalendarEvent({
-        date: dateKey,
+        date: new Date(dateKey),
         title: `${title}`,
         content: content,
         authorId: req.user.id,
@@ -228,7 +228,7 @@ router.patch('/:id', verifyToken, /** @param {import('../auth.js').Authenticated
         await CalendarEvent.findOneAndUpdate(
           { boardId: board._id, source: 'assessment' },
           {
-            date: dateKey,
+            date: new Date(dateKey),
             title: `[수행] ${board.title}`,
             content: board.content
           }
@@ -273,32 +273,6 @@ router.delete('/:id', verifyToken, /** @param {import('../auth.js').Authenticate
     res.json({ message: '글이 삭제되었습니다.' });
   } catch (error) {
     res.status(500).json({ error: '글 삭제 오류' });
-  }
-});
-
-// 비밀번호 변경 (반장, 부반장, 관리자 전용)
-router.patch('/change-pw', verifyToken, /** @param {import('../auth.js').AuthenticatedRequest} req */ async (req, res) => {
-  const { targetId, newPassword } = req.body;
-
-  if (!req.user) return res.status(401).json({ error: '인증이 필요합니다.' });
-
-  if (!PRIVILEGED_ROLES.includes(req.user.role)) {
-    return res.status(403).json({ error: '비밀번호 수정 권한이 없습니다.' });
-  }
-
-  try {
-    const targetUser = await User.findById(targetId);
-    if (!targetUser) {
-      return res.status(404).json({ error: '대상 사용자를 찾을 수 없습니다.' });
-    }
-
-    const salt = await genSalt(10);
-    targetUser.password = await hash(newPassword, salt);
-    await targetUser.save();
-
-    res.json({ message: '비밀번호가 변경되었습니다.' });
-  } catch (error) {
-    res.status(500).json({ error: '비밀번호 변경 오류' });
   }
 });
 

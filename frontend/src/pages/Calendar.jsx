@@ -13,7 +13,8 @@ export default function Calendar() {
   const [loading, setLoading] = useState(true);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedDateKey, setSelectedDateKey] = useState(null);
+  /** @type {[Date|null, React.Dispatch<React.SetStateAction<Date|null>>]} */
+  const [selectedDate, setSelectedDate] = useState(null);
 
   const [inputTitle, setInputTitle] = useState('');
   const [inputContent, setInputContent] = useState('');
@@ -27,9 +28,7 @@ export default function Calendar() {
   const fetchEvents = async () => {
     setLoading(true);
     try {
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth() + 1;
-      const { data } = await api.get('/calendar', { params: { year, month } });
+      const { data } = await api.get('/calendar', { params: { start: currentDates[0], end: currentDates[currentDates.length-1] } });
       setEvents(data);
     } catch {
       setEvents([]);
@@ -75,12 +74,10 @@ export default function Calendar() {
 
   const currentDates = getDatesForMonth(currentDate.getFullYear(), currentDate.getMonth());
 
-  const formatDateKey = (date) => {
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  };
-
-  const getEventsForDate = (dateKey) => {
-    return events.filter(e => e.date === dateKey);
+  const getEventsForDate = (date) => {
+    const tomorrow = new Date(date);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return events.filter(e => new Date(e.date) >= date && new Date(e.date) < tomorrow);
   };
 
   const handlePrevMonth = () => {
@@ -92,7 +89,7 @@ export default function Calendar() {
   };
 
   const openModal = (date) => {
-    setSelectedDateKey(formatDateKey(date));
+    setSelectedDate(date);
     setIsModalOpen(true);
     setInputTitle('');
     setInputContent('');
@@ -102,7 +99,7 @@ export default function Calendar() {
   const closeModal = (e) => {
     if (e) e.stopPropagation();
     setIsModalOpen(false);
-    setSelectedDateKey(null);
+    setSelectedDate(null);
     setInputTitle('');
     setInputContent('');
     setEditingId(null);
@@ -110,18 +107,18 @@ export default function Calendar() {
 
   const handleSaveEvent = async (e) => {
     if (e) e.stopPropagation();
-    if (!inputTitle.trim() || !selectedDateKey) return;
+    if (!inputTitle.trim() || !selectedDate) return;
 
     try {
       if (editingId !== null) {
         await api.patch(`/calendar/${editingId}`, {
           title: inputTitle,
           content: inputContent,
-          date: selectedDateKey,
+          date: selectedDate,
         });
       } else {
         await api.post('/calendar', {
-          date: selectedDateKey,
+          date: selectedDate,
           title: inputTitle,
           content: inputContent,
         });
@@ -177,8 +174,7 @@ export default function Calendar() {
           ) : (
             <div className="grid grid-cols-7 gap-1 sm:gap-2 auto-rows-fr">
               {currentDates.map((date, idx) => {
-                const dateKey = formatDateKey(date);
-                const dayEvents = getEventsForDate(dateKey);
+                const dayEvents = getEventsForDate(date);
                 const isCurrentMonth = date.getMonth() === currentDate.getMonth();
 
                 return (
@@ -201,11 +197,8 @@ export default function Calendar() {
                       {dayEvents.slice(0, 3).map(event => (
                         <div
                           key={event._id}
-                          onClick={(e) => { e.stopPropagation(); setDetailEvent({ ...event, dateKey }); }}
-                          className={`text-[10px] sm:text-xs p-1 rounded truncate hover:opacity-80 ${event.source === 'assessment'
-                            ? 'bg-neutral text-white border border-neutral shadow-sm'
-                            : 'bg-white text-black border border-gray-200 shadow-sm hover:bg-gray-50'
-                            }`}
+                          onClick={(e) => { e.stopPropagation(); setDetailEvent({ ...event, dateKey: date }); }}
+                          className={`text-[10px] sm:text-xs p-1 rounded truncate hover:opacity-80 bg-white text-black border border-gray-200 shadow-sm hover:bg-gray-50`}
                         >
                           {event.title}
                         </div>
@@ -222,10 +215,10 @@ export default function Calendar() {
       {isModalOpen && (
         <div className="modal modal-open">
           <div className="modal-box w-11/12 max-w-sm">
-            <h3 className="font-bold text-lg mb-4">{selectedDateKey} 일정 관리</h3>
+            <h3 className="font-bold text-lg mb-4">{selectedDate?.toLocaleDateString()} 일정 관리</h3>
 
             <div className="flex flex-col gap-2 mb-4 max-h-40 overflow-y-auto">
-              {getEventsForDate(selectedDateKey).map(event => (
+              {getEventsForDate(selectedDate).map(event => (
                 <div key={event._id} className={`flex justify-between items-center p-2 rounded ${event.source === 'assessment' ? 'bg-neutral/10' : 'bg-base-200'}`}>
                   <div className="flex flex-col truncate w-3/5">
                     <span className="text-sm truncate">{event.title}</span>
@@ -241,7 +234,7 @@ export default function Calendar() {
                   )}
                 </div>
               ))}
-              {getEventsForDate(selectedDateKey).length === 0 && (
+              {getEventsForDate(selectedDate).length === 0 && (
                 <p className="text-sm text-center text-gray-500 my-2">등록된 일정이 없습니다.</p>
               )}
             </div>

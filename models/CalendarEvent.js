@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 const { Schema, model } = mongoose;
 
 const calendarEventSchema = new Schema({
-  date: { type: String, required: true },
+  date: { type: Date, required: true },
   title: { type: String, required: true },
   content: { type: String, default: '' },
   authorId: { type: String, required: true },

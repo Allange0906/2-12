@@ -96,7 +96,7 @@ router.post('/', verifyToken, upload.array('files'), /** @param {import('../auth
     if (category === '수행' && parsedDeadline) {
       const dateKey = `${parsedDeadline.getFullYear()}-${String(parsedDeadline.getMonth() + 1).padStart(2, '0')}-${String(parsedDeadline.getDate()).padStart(2, '0')}`;
       const calEvent = new CalendarEvent({
-        date: dateKey,
+        date: new Date(dateKey),
         title: `${title}`,
         content: content,
         authorId: req.user.id,
@@ -238,7 +238,7 @@ router.patch('/:id', verifyToken, /** @param {import('../auth.js').Authenticated
         await CalendarEvent.findOneAndUpdate(
           { boardId: board._id, source: 'assessment' },
           {
-            date: dateKey,
+            date: new Date(dateKey),
             title: `[수행] ${board.title}`,
             content: board.content
           }

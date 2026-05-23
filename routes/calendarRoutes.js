@@ -10,16 +10,28 @@ const PRIVILEGED_ROLES = ['관리자', '반장', '부반장', '선생님'];
 
 // 특정 월의 일정 조회
 router.get('/', verifyToken, async (req, res) => {
-  const { year, month } = req.query;
+  const { start, end } = req.query;
 
-  if (!year || !month) {
-    return res.status(400).json({ error: 'year, month 쿼리가 필요합니다.' });
+  if (!start || !end) {
+    return res.status(400).json({ error: 'start, end 쿼리가 필요합니다.' });
+  }
+
+  // type check for start and end
+  if (typeof start !== 'string' || typeof end !== 'string') {
+    return res.status(400).json({ error: 'start, end는 문자열이어야 합니다.' });
+  }
+
+  // allow up to a year range, but not more
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+
+  if (endDate < startDate || (endDate.getTime() - startDate.getTime()) > 365 * 24 * 60 * 60 * 1000) {
+    return res.status(400).json({ error: '유효한 날짜 범위를 입력해주세요. (최대 1년)' });
   }
 
   try {
-    const prefix = `${year}-${String(month).padStart(2, '0')}`;
     const events = await CalendarEvent.find({
-      date: { $regex: `^${prefix}` }
+      date: { $gte: startDate, $lte: endDate }
     }).sort({ date: 1, createdAt: 1 });
 
     res.status(200).json(events);
@@ -30,7 +42,7 @@ router.get('/', verifyToken, async (req, res) => {
 });
 
 // 수동 일정 추가 (반장/부반장/선생님만)
-router.post('/', verifyToken, /** @param {import('../auth').AuthenticatedRequest} req */ async (req, res) => {
+router.post('/', verifyToken, /** @param {import('../auth.js').AuthenticatedRequest} req */ async (req, res) => {
   if (!req.user) return res.status(401).json({ error: '인증이 필요합니다.' });
   if (!PRIVILEGED_ROLES.includes(req.user.role)) {
     return res.status(403).json({ error: '일정 추가 권한이 없습니다.' });
@@ -43,7 +55,7 @@ router.post('/', verifyToken, /** @param {import('../auth').AuthenticatedRequest
 
   try {
     const event = new CalendarEvent({
-      date,
+      date: new Date(date),
       title,
       content: content || '',
       authorId: req.user.id,
@@ -58,7 +70,7 @@ router.post('/', verifyToken, /** @param {import('../auth').AuthenticatedRequest
 });
 
 // 일정 수정 (수동 일정만, 반장/부반장/선생님만)
-router.patch('/:id', verifyToken, /** @param {import('../auth').AuthenticatedRequest} req */ async (req, res) => {
+router.patch('/:id', verifyToken, /** @param {import('../auth.js').AuthenticatedRequest} req */ async (req, res) => {
   if (!req.user) return res.status(401).json({ error: '인증이 필요합니다.' });
   if (!PRIVILEGED_ROLES.includes(req.user.role)) {
     return res.status(403).json({ error: '일정 수정 권한이 없습니다.' });
@@ -74,7 +86,7 @@ router.patch('/:id', verifyToken, /** @param {import('../auth').AuthenticatedReq
     const { title, content, date } = req.body;
     if (title) event.title = title;
     if (content !== undefined) event.content = content;
-    if (date) event.date = date;
+    if (date) event.date = new Date(date);
     await event.save();
     res.json({ message: '일정이 수정되었습니다.', data: event });
   } catch (error) {
@@ -83,7 +95,7 @@ router.patch('/:id', verifyToken, /** @param {import('../auth').AuthenticatedReq
 });
 
 // 일정 삭제 (수동 일정만, 반장/부반장/선생님만)
-router.delete('/:id', verifyToken, /** @param {import('../auth').AuthenticatedRequest} req */ async (req, res) => {
+router.delete('/:id', verifyToken, /** @param {import('../auth.js').AuthenticatedRequest} req */ async (req, res) => {
   if (!req.user) return res.status(401).json({ error: '인증이 필요합니다.' });
   if (!PRIVILEGED_ROLES.includes(req.user.role)) {
     return res.status(403).json({ error: '일정 삭제 권한이 없습니다.' });
